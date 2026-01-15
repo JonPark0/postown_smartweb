@@ -67,6 +67,7 @@ class SmartWebHeater(ClimateEntity):
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_min_temp = 10
     _attr_max_temp = 40
+    _attr_translation_key = "heater"
 
     def __init__(
         self,
