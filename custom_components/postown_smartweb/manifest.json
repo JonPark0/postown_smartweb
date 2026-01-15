@@ -1,0 +1,12 @@
+{
+  "domain": "postown_smartweb",
+  "name": "Postown SmartWeb",
+  "version": "1.0.0",
+  "documentation": "https://github.com/yourusername/postown_smartweb",
+  "issue_tracker": "https://github.com/yourusername/postown_smartweb/issues",
+  "requirements": ["beautifulsoup4>=4.12.0"],
+  "dependencies": [],
+  "codeowners": [],
+  "iot_class": "local_polling",
+  "config_flow": true
+}

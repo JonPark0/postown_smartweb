@@ -1,0 +1,75 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Postown SmartWeb Connection Setup",
+        "description": "Enter connection details for your SmartWeb server.\n\nExample: {host_example}",
+        "data": {
+          "host": "Host URL",
+          "username": "Username",
+          "password": "Password"
+        }
+      },
+      "add_device": {
+        "title": "Add Device",
+        "description": "Enter device information to control. ({device_count} device(s) added)",
+        "data": {
+          "device_name": "Device Name",
+          "device_type": "Device Type",
+          "device_id": "Device ID (device_no)",
+          "add_another": "Add another device"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect to server",
+      "invalid_auth": "Authentication failed (check username/password)",
+      "unknown": "Unknown error occurred"
+    },
+    "abort": {
+      "already_configured": "This server is already configured"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Postown SmartWeb Settings",
+        "menu_options": {
+          "add_device": "Add Device",
+          "remove_device": "Remove Device",
+          "edit_credentials": "Edit Connection"
+        }
+      },
+      "add_device": {
+        "title": "Add Device",
+        "data": {
+          "device_name": "Device Name",
+          "device_type": "Device Type",
+          "device_id": "Device ID (device_no)"
+        }
+      },
+      "remove_device": {
+        "title": "Remove Device",
+        "description": "Select device to remove",
+        "data": {
+          "device": "Device to remove"
+        }
+      },
+      "edit_credentials": {
+        "title": "Edit Connection",
+        "data": {
+          "host": "Host URL",
+          "username": "Username",
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Cannot connect to server",
+      "invalid_auth": "Authentication failed"
+    },
+    "abort": {
+      "no_devices": "No devices to remove"
+    }
+  }
+}
