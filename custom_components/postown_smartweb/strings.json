@@ -1,4 +1,18 @@
 {
+  "entity": {
+    "climate": {
+      "heater": {
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "home": "복귀",
+              "away": "외출"
+            }
+          }
+        }
+      }
+    }
+  },
   "config": {
     "step": {
       "user": {

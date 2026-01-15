@@ -24,6 +24,9 @@ from .hub import SmartWebHub
 
 _LOGGER = logging.getLogger(__name__)
 
+PRESET_AWAY = "away"
+PRESET_HOME = "home"
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -58,7 +61,9 @@ class SmartWebHeater(ClimateEntity):
         ClimateEntityFeature.TARGET_TEMPERATURE
         | ClimateEntityFeature.TURN_ON
         | ClimateEntityFeature.TURN_OFF
+        | ClimateEntityFeature.PRESET_MODE
     )
+    _attr_preset_modes = [PRESET_HOME, PRESET_AWAY]
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_min_temp = 10
     _attr_max_temp = 40
@@ -76,6 +81,7 @@ class SmartWebHeater(ClimateEntity):
         self._device_id = device_id
         self._url = f"{hub.host}/SmartWeb/My_Home/Detail_Control_Heater.aspx?device_no={device_id}"
         self._attr_hvac_mode = HVACMode.OFF
+        self._attr_preset_mode = PRESET_HOME
         self._attr_target_temperature = 20
         self._attr_current_temperature = None
         self._attr_unique_id = f"{DOMAIN}_{entry_id}_heater_{device_id}"
@@ -86,10 +92,17 @@ class SmartWebHeater(ClimateEntity):
         if not soup:
             return
 
-        if "icon_b_boiler_on" in str(soup):
+        page_content = str(soup)
+
+        if "icon_b_boiler_away" in page_content:
             self._attr_hvac_mode = HVACMode.HEAT
+            self._attr_preset_mode = PRESET_AWAY
+        elif "icon_b_boiler_on" in page_content:
+            self._attr_hvac_mode = HVACMode.HEAT
+            self._attr_preset_mode = PRESET_HOME
         else:
             self._attr_hvac_mode = HVACMode.OFF
+            self._attr_preset_mode = PRESET_HOME
 
         try:
             temp_input = soup.find(id="txtboxSetTemp")
@@ -103,8 +116,19 @@ class SmartWebHeater(ClimateEntity):
         """Set new target hvac mode."""
         if hvac_mode == HVACMode.HEAT:
             self._send_command("btnOn")
+            self._attr_preset_mode = PRESET_HOME
         elif hvac_mode == HVACMode.OFF:
             self._send_command("btnOff")
+
+    def set_preset_mode(self, preset_mode: str) -> None:
+        """Set new preset mode."""
+        if preset_mode == PRESET_AWAY:
+            self._send_command("btnAway")
+        elif preset_mode == PRESET_HOME:
+            if self._attr_hvac_mode == HVACMode.OFF:
+                self._send_command("btnOn")
+            elif self._attr_preset_mode == PRESET_AWAY:
+                self._send_command("btnOn")
 
     def set_temperature(self, **kwargs) -> None:
         """Set new target temperature."""

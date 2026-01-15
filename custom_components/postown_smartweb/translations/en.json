@@ -1,4 +1,18 @@
 {
+  "entity": {
+    "climate": {
+      "heater": {
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "home": "Home",
+              "away": "Away"
+            }
+          }
+        }
+      }
+    }
+  },
   "config": {
     "step": {
       "user": {
