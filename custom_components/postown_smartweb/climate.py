@@ -110,6 +110,12 @@ class SmartWebHeater(ClimateEntity):
             if temp_input:
                 self._attr_target_temperature = float(temp_input.get("value", 20))
                 self._attr_current_temperature = self._attr_target_temperature
+                _LOGGER.debug(
+                    "%s - Temperature values updated: current=%.1f°C, target=%.1f°C",
+                    self._attr_name,
+                    self._attr_current_temperature,
+                    self._attr_target_temperature,
+                )
         except (ValueError, TypeError):
             pass
 
@@ -136,7 +142,15 @@ class SmartWebHeater(ClimateEntity):
         temp = kwargs.get(ATTR_TEMPERATURE)
         if temp is None:
             return
+
+        old_temp = self._attr_target_temperature
         self._attr_target_temperature = temp
+        _LOGGER.debug(
+            "%s - Setting target temperature: %.1f°C -> %.1f°C",
+            self._attr_name,
+            old_temp,
+            temp,
+        )
         self._send_command("btnTmpSet")
 
     def _send_command(self, btn_id: str) -> None:

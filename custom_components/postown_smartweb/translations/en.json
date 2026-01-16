@@ -11,6 +11,14 @@
           }
         }
       }
+    },
+    "sensor": {
+      "heater_current_temperature": {
+        "name": "Current Temperature"
+      },
+      "heater_target_temperature": {
+        "name": "Target Temperature"
+      }
     }
   },
   "config": {

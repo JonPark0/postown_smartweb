@@ -12,7 +12,7 @@ from .hub import SmartWebHub
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS: list[Platform] = [Platform.SWITCH, Platform.CLIMATE]
+PLATFORMS: list[Platform] = [Platform.SWITCH, Platform.CLIMATE, Platform.SENSOR]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

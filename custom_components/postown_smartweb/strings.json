@@ -11,6 +11,14 @@
           }
         }
       }
+    },
+    "sensor": {
+      "heater_current_temperature": {
+        "name": "현재 온도"
+      },
+      "heater_target_temperature": {
+        "name": "목표 온도"
+      }
     }
   },
   "config": {
