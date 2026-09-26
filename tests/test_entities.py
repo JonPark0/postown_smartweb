@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup
 from homeassistant.components.climate import HVACMode
 
 from custom_components.postown_smartweb.climate import SmartWebHeater
+from custom_components.postown_smartweb.sensor import SmartWebTemperatureSensor
 from custom_components.postown_smartweb.switch import SmartWebLight
 
 FORM = (
@@ -124,6 +125,16 @@ def test_light_failed_command_keeps_state():
     entity._attr_is_on = False
     entity.turn_on()
     assert entity.is_on is False
+
+
+def test_temperature_sensor_unavailable_on_fetch_failure():
+    hub = FakeHub([FORM + '<input id="txtboxSetTemp" value="24"/>', None])
+    entity = SmartWebTemperatureSensor(hub, "n", "31", "e", "target")
+    entity.update()
+    assert entity.native_value == 24.0
+    assert entity.available is True
+    entity.update()
+    assert entity.available is False
 
 
 def test_light_turn_on():

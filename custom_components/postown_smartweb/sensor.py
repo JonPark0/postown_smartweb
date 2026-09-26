@@ -98,16 +98,19 @@ class SmartWebTemperatureSensor(SensorEntity):
     def update(self) -> None:
         """Fetch new temperature data."""
         soup = self._hub.get_soup(self._url)
-        if not soup:
+        if soup is None:
+            self._attr_available = False
             return
+
+        self._attr_available = True
 
         try:
             temp_input = soup.find(id="txtboxSetTemp")
             if temp_input:
                 temperature = float(temp_input.get("value", 20))
 
-                # For now, both current and target use the same value from the web page
-                # This matches the behavior in climate.py
+                # The control page only exposes the set temperature, so both
+                # the current and target sensors report that value for now.
                 self._attr_native_value = temperature
 
                 _LOGGER.debug(
