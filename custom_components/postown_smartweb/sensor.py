@@ -20,6 +20,7 @@ from .const import (
     CONF_DEVICE_NAME,
     DEVICE_TYPE_HEATER,
 )
+from .climate import read_current_temperature, read_set_temperature
 from .hub import SmartWebHub
 
 _LOGGER = logging.getLogger(__name__)
@@ -104,20 +105,16 @@ class SmartWebTemperatureSensor(SensorEntity):
 
         self._attr_available = True
 
-        try:
-            temp_input = soup.find(id="txtboxSetTemp")
-            if temp_input:
-                temperature = float(temp_input.get("value", 20))
+        if self._sensor_type == "current":
+            temperature = read_current_temperature(soup)
+        else:
+            temperature = read_set_temperature(soup)
 
-                # The control page only exposes the set temperature, so both
-                # the current and target sensors report that value for now.
-                self._attr_native_value = temperature
+        self._attr_native_value = temperature
 
-                _LOGGER.debug(
-                    "%s - Temperature sensor updated: %s=%.1f°C",
-                    self._device_name,
-                    self._sensor_type,
-                    temperature,
-                )
-        except (ValueError, TypeError) as e:
-            _LOGGER.error("Failed to parse temperature for %s: %s", self._device_name, e)
+        _LOGGER.debug(
+            "%s - Temperature sensor updated: %s=%s°C",
+            self._device_name,
+            self._sensor_type,
+            temperature,
+        )

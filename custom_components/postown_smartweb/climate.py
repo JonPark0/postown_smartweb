@@ -13,6 +13,7 @@ from homeassistant.components.climate import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import ATTR_TEMPERATURE, PRECISION_WHOLE, UnitOfTemperature
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import (
@@ -25,6 +26,34 @@ from .const import (
 from .hub import SmartWebHub
 
 _LOGGER = logging.getLogger(__name__)
+
+# Buttons that are only rendered while the heater is running. The OFF page
+# renders disabled "...D" variants (btnAwayD, btnTmpSetD) instead.
+RUNNING_ONLY_BUTTONS = {
+    "btnAway": "heater_off_away",
+    "btnTmpSet": "heater_off_temperature",
+}
+
+
+def _read_float(element) -> float | None:
+    """Return the numeric value of an input or text element."""
+    if element is None:
+        return None
+    raw = element.get("value") if element.name == "input" else element.get_text(strip=True)
+    try:
+        return float(raw)
+    except (ValueError, TypeError):
+        return None
+
+
+def read_set_temperature(soup) -> float | None:
+    """Return the set temperature (희망온도) shown on the heater page."""
+    return _read_float(soup.find(id="txtboxSetTemp"))
+
+
+def read_current_temperature(soup) -> float | None:
+    """Return the room temperature (현재온도) shown on the heater page."""
+    return _read_float(soup.find(id="lbNowTemp"))
 
 
 async def async_setup_entry(
@@ -69,8 +98,9 @@ class SmartWebHeater(ClimateEntity):
     # The device only accepts whole degrees
     _attr_precision = PRECISION_WHOLE
     _attr_target_temperature_step = 1
-    _attr_min_temp = 10
-    _attr_max_temp = 40
+    # Range shown on the control page: "희망온도 설정 (18℃~41℃)"
+    _attr_min_temp = 18
+    _attr_max_temp = 41
 
     def __init__(
         self,
@@ -87,7 +117,6 @@ class SmartWebHeater(ClimateEntity):
         self._attr_hvac_mode = None
         self._attr_preset_mode = None
         self._attr_target_temperature = None
-        # The control page only exposes the set temperature, not the room temperature
         self._attr_current_temperature = None
         self._attr_unique_id = f"{DOMAIN}_{entry_id}_heater_{device_id}"
 
@@ -99,7 +128,10 @@ class SmartWebHeater(ClimateEntity):
             return
 
         self._attr_available = True
-        page_content = str(soup)
+        # The state icon is imgDevice: icon_b_boiler_off / icon_b_boiler_away /
+        # icon_b_boiler_on1 (the ON icon has a numeric suffix).
+        device_icon = soup.find(id="imgDevice")
+        page_content = device_icon.get("src", "") if device_icon else str(soup)
 
         if "icon_b_boiler_away" in page_content:
             self._attr_hvac_mode = HVACMode.HEAT
@@ -111,12 +143,16 @@ class SmartWebHeater(ClimateEntity):
             self._attr_hvac_mode = HVACMode.OFF
             self._attr_preset_mode = PRESET_HOME
 
-        temp = self._read_set_temperature(soup)
-        if temp is not None:
-            self._attr_target_temperature = temp
-            _LOGGER.debug(
-                "%s - Target temperature updated: %.1f°C", self._attr_name, temp
-            )
+        target = read_set_temperature(soup)
+        if target is not None:
+            self._attr_target_temperature = target
+        self._attr_current_temperature = read_current_temperature(soup)
+        _LOGGER.debug(
+            "%s - Temperature updated: current=%s°C, target=%s°C",
+            self._attr_name,
+            self._attr_current_temperature,
+            self._attr_target_temperature,
+        )
 
     def set_hvac_mode(self, hvac_mode: HVACMode) -> None:
         """Set new target hvac mode."""
@@ -150,17 +186,6 @@ class SmartWebHeater(ClimateEntity):
         if self._send_command("btnTmpSet", temp):
             self._attr_target_temperature = temp
 
-    @staticmethod
-    def _read_set_temperature(soup) -> float | None:
-        """Return the set temperature shown on the control page."""
-        temp_input = soup.find(id="txtboxSetTemp")
-        if not temp_input:
-            return None
-        try:
-            return float(temp_input.get("value", ""))
-        except (ValueError, TypeError):
-            return None
-
     def _send_command(self, btn_id: str, temperature: int | None = None) -> bool:
         """Send command to the heater.
 
@@ -180,10 +205,26 @@ class SmartWebHeater(ClimateEntity):
             _LOGGER.error("Could not find form fields for heater control")
             return False
 
+        # The page only renders the buttons that apply to the current state.
+        # Posting a button that is not rendered fails ASP.NET event validation.
+        if soup.find(id=btn_id) is None:
+            if btn_id in RUNNING_ONLY_BUTTONS:
+                raise HomeAssistantError(
+                    translation_domain=DOMAIN,
+                    translation_key=RUNNING_ONLY_BUTTONS[btn_id],
+                )
+            # btnOn is only shown while off and btnOff only while on
+            _LOGGER.debug(
+                "%s - %s not shown, heater is already in the requested state",
+                self._attr_name,
+                btn_id,
+            )
+            return True
+
         if temperature is None:
             # Keep the temperature currently set on the server so that
             # on/off/away do not overwrite a change made on the wall panel.
-            current = self._read_set_temperature(soup)
+            current = read_set_temperature(soup)
             if current is None:
                 current = self._attr_target_temperature
             if current is None:

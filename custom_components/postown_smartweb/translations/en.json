@@ -100,5 +100,13 @@
     "abort": {
       "no_devices": "No devices to remove"
     }
+  },
+  "exceptions": {
+    "heater_off_away": {
+      "message": "Away mode is not available while the heater is off. Turn the heater on first."
+    },
+    "heater_off_temperature": {
+      "message": "The target temperature cannot be set while the heater is off. Turn the heater on first."
+    }
   }
 }

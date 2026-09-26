@@ -97,6 +97,15 @@ class SmartWebLight(SwitchEntity):
                 _LOGGER.error("Could not find form fields for light control")
                 return
 
+            # The page renders only btnOff while on and only btnOn while off.
+            # Posting a button that is not rendered fails ASP.NET event validation.
+            if soup.find(id=f"btn{action.capitalize()}") is None:
+                _LOGGER.debug(
+                    "%s - light is already %s", self._attr_name, action
+                )
+                self._attr_is_on = action == "on"
+                return
+
             payload = {
                 "__VIEWSTATE": viewstate["value"],
                 "__VIEWSTATEGENERATOR": generator["value"] if generator else "",
