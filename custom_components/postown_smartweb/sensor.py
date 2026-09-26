@@ -98,7 +98,7 @@ class SmartWebTemperatureSensor(SensorEntity):
 
     def update(self) -> None:
         """Fetch new temperature data."""
-        soup = self._hub.get_soup(self._url)
+        soup = self._hub.get_device_page(self._url)
         if soup is None:
             self._attr_available = False
             return

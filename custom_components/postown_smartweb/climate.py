@@ -122,7 +122,7 @@ class SmartWebHeater(ClimateEntity):
 
     def update(self) -> None:
         """Fetch new state data for this heater."""
-        soup = self._hub.get_soup(self._url)
+        soup = self._hub.get_device_page(self._url)
         if soup is None:
             self._attr_available = False
             return
@@ -130,8 +130,7 @@ class SmartWebHeater(ClimateEntity):
         self._attr_available = True
         # The state icon is imgDevice: icon_b_boiler_off / icon_b_boiler_away /
         # icon_b_boiler_on1 (the ON icon has a numeric suffix).
-        device_icon = soup.find(id="imgDevice")
-        page_content = device_icon.get("src", "") if device_icon else str(soup)
+        page_content = soup.find(id="imgDevice").get("src", "")
 
         if "icon_b_boiler_away" in page_content:
             self._attr_hvac_mode = HVACMode.HEAT
@@ -192,7 +191,7 @@ class SmartWebHeater(ClimateEntity):
         Home Assistant refreshes the entity after the service call, so the
         state is not updated here.
         """
-        soup = self._hub.get_soup(self._url)
+        soup = self._hub.get_device_page(self._url)
         if soup is None:
             _LOGGER.error("Could not load heater page for device %s", self._device_id)
             return False

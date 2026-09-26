@@ -65,13 +65,14 @@ class SmartWebLight(SwitchEntity):
 
     def update(self) -> None:
         """Fetch new state data for this light."""
-        soup = self._hub.get_soup(self._url)
+        soup = self._hub.get_device_page(self._url)
         if soup is None:
             self._attr_available = False
             return
 
         self._attr_available = True
-        self._attr_is_on = "icon_b_light_on" in str(soup)
+        # imgDevice shows icon_b_light_on or icon_b_light_off
+        self._attr_is_on = "icon_b_light_on" in soup.find(id="imgDevice").get("src", "")
 
     def turn_on(self, **kwargs) -> None:
         """Turn the light on."""
@@ -83,7 +84,7 @@ class SmartWebLight(SwitchEntity):
 
     def _operate(self, action: str) -> None:
         """Perform on/off operation."""
-        soup = self._hub.get_soup(self._url)
+        soup = self._hub.get_device_page(self._url)
         if soup is None:
             _LOGGER.error("Could not load light page for device %s", self._device_id)
             return

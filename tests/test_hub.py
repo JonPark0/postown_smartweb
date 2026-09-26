@@ -1,4 +1,5 @@
 """Tests for the SmartWeb hub using a scripted fake HTTP session."""
+import logging
 import threading
 import time
 
@@ -153,3 +154,63 @@ def test_session_is_never_used_concurrently():
     for thread in threads:
         thread.join()
     assert hub._session.max_active == 1
+
+
+def test_network_failure_pauses_polling(monkeypatch):
+    now = [1000.0]
+    monkeypatch.setattr(hub_mod.time, "monotonic", lambda: now[0])
+    hub = make_hub([requests.ConnectTimeout("t"), Resp("<p>back</p>")])
+
+    assert hub.get_soup(PAGE_URL) is None
+    assert hub.get_soup(PAGE_URL) is None  # skipped, no request made
+    assert hub._session.calls == 1
+
+    now[0] += hub_mod.UNREACHABLE_BACKOFF + 1
+    assert hub.get_soup(PAGE_URL) is not None
+    assert hub._session.calls == 2
+    assert hub._unreachable_until == 0.0
+
+
+def test_outage_logs_one_warning(monkeypatch, caplog):
+    caplog.set_level(logging.INFO, logger=hub_mod.__name__)
+    now = [1000.0]
+    monkeypatch.setattr(hub_mod.time, "monotonic", lambda: now[0])
+    hub = make_hub([requests.ConnectTimeout("t"), requests.ConnectTimeout("t"), Resp()])
+
+    hub.get_soup(PAGE_URL)
+    for _ in range(10):
+        hub.get_soup(PAGE_URL)
+    now[0] += hub_mod.UNREACHABLE_BACKOFF + 1
+    hub.get_soup(PAGE_URL)  # still failing
+    now[0] += hub_mod.UNREACHABLE_BACKOFF + 1
+    hub.get_soup(PAGE_URL)  # recovered
+
+    warnings = [r for r in caplog.records if r.levelname == "WARNING"]
+    assert len(warnings) == 1
+    assert any("reachable again" in r.getMessage() for r in caplog.records)
+
+
+def test_command_is_tried_while_polling_paused(monkeypatch):
+    monkeypatch.setattr(hub_mod.time, "monotonic", lambda: 1000.0)
+    hub = make_hub([requests.ConnectTimeout("t"), Resp("ok")])
+    assert hub.get_soup(PAGE_URL) is None
+    assert hub.send_command("u", {}) is True
+    assert hub._unreachable_until == 0.0
+
+
+def test_redirect_to_other_host_is_unreachable():
+    router_page = Resp("<html>No internet</html>", url="http://www.asusrouter.com/error_page.htm?flag=3")
+    hub = make_hub([router_page])
+    assert hub.get_soup(PAGE_URL) is None
+    assert hub._unreachable_until > 0
+
+
+def test_command_redirected_to_other_host_fails():
+    hub = make_hub([Resp("ok", url="http://www.asusrouter.com/error_page.htm")])
+    assert hub.send_command("u", {}) is False
+
+
+def test_get_device_page_requires_device_icon():
+    hub = make_hub([Resp("<html>maintenance</html>"), Resp('<img id="imgDevice" src="x.png"/>')])
+    assert hub.get_device_page(PAGE_URL) is None
+    assert hub.get_device_page(PAGE_URL) is not None

@@ -54,7 +54,7 @@ class FakeHub:
         self.command_ok = command_ok
         self.sent = []
 
-    def get_soup(self, url):
+    def get_device_page(self, url):
         page = self.pages.pop(0) if self.pages else None
         return None if page is None else BeautifulSoup(page, "html.parser")
 
