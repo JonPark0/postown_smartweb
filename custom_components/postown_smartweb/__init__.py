@@ -6,9 +6,10 @@ import logging
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_USERNAME, Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryNotReady
 
 from .const import DOMAIN, CONF_DEVICES
-from .hub import SmartWebHub
+from .hub import CannotConnect, InvalidAuth, SmartWebHub
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -23,9 +24,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         entry.data[CONF_PASSWORD],
     )
 
-    result = await hass.async_add_executor_job(hub.test_connection)
-    if not result:
-        _LOGGER.error("Failed to connect to Postown SmartWeb")
+    try:
+        await hass.async_add_executor_job(hub.authenticate)
+    except CannotConnect as err:
+        hub.close()
+        # Home Assistant retries the setup with backoff
+        raise ConfigEntryNotReady(f"Cannot connect to Postown SmartWeb: {err}") from err
+    except InvalidAuth:
+        hub.close()
+        _LOGGER.error(
+            "Postown SmartWeb rejected the credentials; update them via the integration options"
+        )
         return False
 
     hass.data.setdefault(DOMAIN, {})
@@ -46,12 +55,12 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
     if unload_ok:
-        hass.data[DOMAIN].pop(entry.entry_id)
+        data = hass.data[DOMAIN].pop(entry.entry_id)
+        data["hub"].close()
 
     return unload_ok
 
 
 async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Reload config entry."""
-    await async_unload_entry(hass, entry)
-    await async_setup_entry(hass, entry)
+    await hass.config_entries.async_reload(entry.entry_id)

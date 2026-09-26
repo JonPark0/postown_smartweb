@@ -46,7 +46,10 @@
     "error": {
       "cannot_connect": "Cannot connect to server",
       "invalid_auth": "Authentication failed (check username/password)",
-      "unknown": "Unknown error occurred"
+      "unknown": "Unknown error occurred",
+      "invalid_host": "Host URL must start with http:// or https://",
+      "invalid_device_id": "Device ID must be a number",
+      "device_exists": "A device with the same type and ID is already configured"
     },
     "abort": {
       "already_configured": "This server is already configured"
@@ -88,10 +91,22 @@
     },
     "error": {
       "cannot_connect": "Cannot connect to server",
-      "invalid_auth": "Authentication failed"
+      "invalid_auth": "Authentication failed",
+      "invalid_host": "Host URL must start with http:// or https://",
+      "invalid_device_id": "Device ID must be a number",
+      "device_exists": "A device with the same type and ID is already configured",
+      "unknown": "Unknown error occurred"
     },
     "abort": {
       "no_devices": "No devices to remove"
+    }
+  },
+  "exceptions": {
+    "heater_off_away": {
+      "message": "Away mode is not available while the heater is off. Turn the heater on first."
+    },
+    "heater_off_temperature": {
+      "message": "The target temperature cannot be set while the heater is off. Turn the heater on first."
     }
   }
 }

@@ -9,5 +9,3 @@ CONF_DEVICE_NAME = "device_name"
 
 DEVICE_TYPE_LIGHT = "light"
 DEVICE_TYPE_HEATER = "heater"
-
-DEFAULT_SCAN_INTERVAL = 30
