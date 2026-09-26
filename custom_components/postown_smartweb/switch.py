@@ -60,16 +60,18 @@ class SmartWebLight(SwitchEntity):
         self._attr_name = name
         self._device_id = device_id
         self._url = f"{hub.host}/SmartWeb/My_Home/Detail_Control_Light.aspx?device_no={device_id}"
-        self._attr_is_on = False
+        self._attr_is_on = None
         self._attr_unique_id = f"{DOMAIN}_{entry_id}_light_{device_id}"
 
     def update(self) -> None:
         """Fetch new state data for this light."""
         soup = self._hub.get_soup(self._url)
-        if soup and "icon_b_light_on" in str(soup):
-            self._attr_is_on = True
-        else:
-            self._attr_is_on = False
+        if soup is None:
+            self._attr_available = False
+            return
+
+        self._attr_available = True
+        self._attr_is_on = "icon_b_light_on" in str(soup)
 
     def turn_on(self, **kwargs) -> None:
         """Turn the light on."""
@@ -82,7 +84,8 @@ class SmartWebLight(SwitchEntity):
     def _operate(self, action: str) -> None:
         """Perform on/off operation."""
         soup = self._hub.get_soup(self._url)
-        if not soup:
+        if soup is None:
+            _LOGGER.error("Could not load light page for device %s", self._device_id)
             return
 
         try:

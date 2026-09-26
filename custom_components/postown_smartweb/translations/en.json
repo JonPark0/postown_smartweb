@@ -46,7 +46,10 @@
     "error": {
       "cannot_connect": "Cannot connect to server",
       "invalid_auth": "Authentication failed (check username/password)",
-      "unknown": "Unknown error occurred"
+      "unknown": "Unknown error occurred",
+      "invalid_host": "Host URL must start with http:// or https://",
+      "invalid_device_id": "Device ID must be a number",
+      "device_exists": "A device with the same type and ID is already configured"
     },
     "abort": {
       "already_configured": "This server is already configured"
@@ -88,7 +91,11 @@
     },
     "error": {
       "cannot_connect": "Cannot connect to server",
-      "invalid_auth": "Authentication failed"
+      "invalid_auth": "Authentication failed",
+      "invalid_host": "Host URL must start with http:// or https://",
+      "invalid_device_id": "Device ID must be a number",
+      "device_exists": "A device with the same type and ID is already configured",
+      "unknown": "Unknown error occurred"
     },
     "abort": {
       "no_devices": "No devices to remove"

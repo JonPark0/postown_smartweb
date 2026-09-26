@@ -14,7 +14,7 @@
 ### HACS를 통한 설치 (권장)
 
 1. HACS > Integrations > 우측 상단 메뉴 (⋮) > **Custom repositories** 클릭
-2. Repository URL 입력: `https://github.com/yourusername/postown_smartweb`
+2. Repository URL 입력: `https://github.com/JonPark0/postown_smartweb`
 3. Category: **Integration** 선택
 4. **ADD** 클릭
 5. HACS에서 "Postown SmartWeb" 검색 후 **Download** 클릭

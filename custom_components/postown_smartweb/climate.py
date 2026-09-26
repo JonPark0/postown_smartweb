@@ -4,12 +4,14 @@ from __future__ import annotations
 import logging
 
 from homeassistant.components.climate import (
+    PRESET_AWAY,
+    PRESET_HOME,
     ClimateEntity,
     ClimateEntityFeature,
     HVACMode,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import ATTR_TEMPERATURE, UnitOfTemperature
+from homeassistant.const import ATTR_TEMPERATURE, PRECISION_WHOLE, UnitOfTemperature
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
@@ -23,9 +25,6 @@ from .const import (
 from .hub import SmartWebHub
 
 _LOGGER = logging.getLogger(__name__)
-
-PRESET_AWAY = "away"
-PRESET_HOME = "home"
 
 
 async def async_setup_entry(
@@ -56,6 +55,8 @@ async def async_setup_entry(
 class SmartWebHeater(ClimateEntity):
     """Representation of a Postown SmartWeb heater."""
 
+    # Links the entity to entity.climate.heater.* in strings.json
+    _attr_translation_key = "heater"
     _attr_hvac_modes = [HVACMode.HEAT, HVACMode.OFF]
     _attr_supported_features = (
         ClimateEntityFeature.TARGET_TEMPERATURE
@@ -65,9 +66,11 @@ class SmartWebHeater(ClimateEntity):
     )
     _attr_preset_modes = [PRESET_HOME, PRESET_AWAY]
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
+    # The device only accepts whole degrees
+    _attr_precision = PRECISION_WHOLE
+    _attr_target_temperature_step = 1
     _attr_min_temp = 10
     _attr_max_temp = 40
-    _attr_translation_key = "heater"
 
     def __init__(
         self,
@@ -81,18 +84,21 @@ class SmartWebHeater(ClimateEntity):
         self._attr_name = name
         self._device_id = device_id
         self._url = f"{hub.host}/SmartWeb/My_Home/Detail_Control_Heater.aspx?device_no={device_id}"
-        self._attr_hvac_mode = HVACMode.OFF
-        self._attr_preset_mode = PRESET_HOME
-        self._attr_target_temperature = 20
+        self._attr_hvac_mode = None
+        self._attr_preset_mode = None
+        self._attr_target_temperature = None
+        # The control page only exposes the set temperature, not the room temperature
         self._attr_current_temperature = None
         self._attr_unique_id = f"{DOMAIN}_{entry_id}_heater_{device_id}"
 
     def update(self) -> None:
         """Fetch new state data for this heater."""
         soup = self._hub.get_soup(self._url)
-        if not soup:
+        if soup is None:
+            self._attr_available = False
             return
 
+        self._attr_available = True
         page_content = str(soup)
 
         if "icon_b_boiler_away" in page_content:
@@ -105,25 +111,17 @@ class SmartWebHeater(ClimateEntity):
             self._attr_hvac_mode = HVACMode.OFF
             self._attr_preset_mode = PRESET_HOME
 
-        try:
-            temp_input = soup.find(id="txtboxSetTemp")
-            if temp_input:
-                self._attr_target_temperature = float(temp_input.get("value", 20))
-                self._attr_current_temperature = self._attr_target_temperature
-                _LOGGER.debug(
-                    "%s - Temperature values updated: current=%.1f°C, target=%.1f°C",
-                    self._attr_name,
-                    self._attr_current_temperature,
-                    self._attr_target_temperature,
-                )
-        except (ValueError, TypeError):
-            pass
+        temp = self._read_set_temperature(soup)
+        if temp is not None:
+            self._attr_target_temperature = temp
+            _LOGGER.debug(
+                "%s - Target temperature updated: %.1f°C", self._attr_name, temp
+            )
 
     def set_hvac_mode(self, hvac_mode: HVACMode) -> None:
         """Set new target hvac mode."""
         if hvac_mode == HVACMode.HEAT:
             self._send_command("btnOn")
-            self._attr_preset_mode = PRESET_HOME
         elif hvac_mode == HVACMode.OFF:
             self._send_command("btnOff")
 
@@ -142,43 +140,65 @@ class SmartWebHeater(ClimateEntity):
         temp = kwargs.get(ATTR_TEMPERATURE)
         if temp is None:
             return
-
-        old_temp = self._attr_target_temperature
-        self._attr_target_temperature = temp
+        temp = int(round(temp))
         _LOGGER.debug(
-            "%s - Setting target temperature: %.1f°C -> %.1f°C",
+            "%s - Setting target temperature: %s°C -> %d°C",
             self._attr_name,
-            old_temp,
+            self._attr_target_temperature,
             temp,
         )
-        self._send_command("btnTmpSet")
+        if self._send_command("btnTmpSet", temp):
+            self._attr_target_temperature = temp
 
-    def _send_command(self, btn_id: str) -> None:
-        """Send command to the heater."""
-        soup = self._hub.get_soup(self._url)
-        if not soup:
-            return
-
+    @staticmethod
+    def _read_set_temperature(soup) -> float | None:
+        """Return the set temperature shown on the control page."""
+        temp_input = soup.find(id="txtboxSetTemp")
+        if not temp_input:
+            return None
         try:
-            viewstate = soup.find(id="__VIEWSTATE")
-            generator = soup.find(id="__VIEWSTATEGENERATOR")
-            validation = soup.find(id="__EVENTVALIDATION")
+            return float(temp_input.get("value", ""))
+        except (ValueError, TypeError):
+            return None
 
-            if not viewstate:
-                _LOGGER.error("Could not find form fields for heater control")
-                return
+    def _send_command(self, btn_id: str, temperature: int | None = None) -> bool:
+        """Send command to the heater.
 
-            payload = {
-                "__VIEWSTATE": viewstate["value"],
-                "__VIEWSTATEGENERATOR": generator["value"] if generator else "",
-                "__EVENTVALIDATION": validation["value"] if validation else "",
-                "__ASYNCPOST": "true",
-                "ScriptManager1": f"UpdatePanel1|{btn_id}",
-                "txtboxSetTemp": str(int(self._attr_target_temperature)),
-                f"{btn_id}.x": "30",
-                f"{btn_id}.y": "10",
-            }
-            if self._hub.send_command(self._url, payload):
-                self.update()
-        except Exception as e:
-            _LOGGER.error("Heater command error: %s", e)
+        Home Assistant refreshes the entity after the service call, so the
+        state is not updated here.
+        """
+        soup = self._hub.get_soup(self._url)
+        if soup is None:
+            _LOGGER.error("Could not load heater page for device %s", self._device_id)
+            return False
+
+        viewstate = soup.find(id="__VIEWSTATE")
+        generator = soup.find(id="__VIEWSTATEGENERATOR")
+        validation = soup.find(id="__EVENTVALIDATION")
+
+        if not viewstate:
+            _LOGGER.error("Could not find form fields for heater control")
+            return False
+
+        if temperature is None:
+            # Keep the temperature currently set on the server so that
+            # on/off/away do not overwrite a change made on the wall panel.
+            current = self._read_set_temperature(soup)
+            if current is None:
+                current = self._attr_target_temperature
+            if current is None:
+                _LOGGER.error("Could not determine set temperature for heater command")
+                return False
+            temperature = int(current)
+
+        payload = {
+            "__VIEWSTATE": viewstate["value"],
+            "__VIEWSTATEGENERATOR": generator["value"] if generator else "",
+            "__EVENTVALIDATION": validation["value"] if validation else "",
+            "__ASYNCPOST": "true",
+            "ScriptManager1": f"UpdatePanel1|{btn_id}",
+            "txtboxSetTemp": str(temperature),
+            f"{btn_id}.x": "30",
+            f"{btn_id}.y": "10",
+        }
+        return self._hub.send_command(self._url, payload)
